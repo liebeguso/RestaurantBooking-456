@@ -8,6 +8,11 @@
 
 using namespace testing;
 
+class MockCustomer : public Customer {
+public:
+	MOCK_METHOD(string, getEmail, (), (override));
+};
+
 class BookingFixture : public Test {
 protected:
 	void SetUp() override {
@@ -16,6 +21,11 @@ protected:
 
 		bookingScheduler.setSmsSender(&testableSmsSender);
 		bookingScheduler.setMailSender(&testableMailSender);
+
+		EXPECT_CALL(CUSTOMER, getEmail)
+			.WillRepeatedly(testing::Return(""));
+		EXPECT_CALL(customerWithMail, getEmail)
+			.WillRepeatedly(testing::Return("test@test.com"));
 	}
 public:
 	tm getTime(int year, int mon, int day, int hour, int min) {
@@ -31,16 +41,17 @@ public:
 
 	tm NOT_ON_THE_HOUR;
 	tm ON_THE_HOUR;
-	Customer CUSTOMER{ "Fake name", "010-1234-5678" };
-	Customer customerWithMail{ "Fake Name", "010-1234-5678", "test@test.com" };
-
+	//Customer CUSTOMER{ "Fake name", "010-1234-5678" };
+	//Customer customerWithMail{ "Fake Name", "010-1234-5678", "test@test.com" };
+	MockCustomer CUSTOMER;
+	MockCustomer customerWithMail;
 
 	const int UNDER_CAPACITY = 1;
 	const int CAPACITY_PER_HOUR = 3;
 
 	BookingScheduler bookingScheduler{ CAPACITY_PER_HOUR };
-	TestableSmsSender testableSmsSender;
-	TestableMailSender testableMailSender;
+	NiceMock<TestableSmsSender> testableSmsSender;
+	NiceMock<TestableMailSender> testableMailSender;
 
 };
 
@@ -102,33 +113,28 @@ TEST_F(BookingFixture, 시간대별인원제한이있다시간대가다르면Capacity차있어도스케�
 TEST_F(BookingFixture, 예약완료시SMS는무조건발송) {
 	// Arrange
 	Schedule* schedule = new Schedule{ ON_THE_HOUR, CAPACITY_PER_HOUR, CUSTOMER };
-
-	// Act
+	//act, assert
+	EXPECT_CALL(testableSmsSender, send(schedule))
+		.Times(1);
 	bookingScheduler.addSchedule(schedule);
-
-	// Assert
-	EXPECT_EQ(true, testableSmsSender.isSendMethodIsCalled());
 }
 
 TEST_F(BookingFixture, 이메일이없는경우에는이메일미발송) {
 	Schedule* schedule = new Schedule{ ON_THE_HOUR, UNDER_CAPACITY, CUSTOMER };
-	bookingScheduler.setMailSender(&testableMailSender);
 
-	// Act
+	//act, assert
+	EXPECT_CALL(testableMailSender, sendMail(schedule))
+		.Times(0);
 	bookingScheduler.addSchedule(schedule);
-
-	// Assert
-	EXPECT_EQ(0, testableMailSender.getCountSendMailMethodIsCalled());
 }
 
 TEST_F(BookingFixture, 이메일이있는경우에는이메일발송) {
 	Schedule* schedule = new Schedule{ ON_THE_HOUR, UNDER_CAPACITY, customerWithMail };
 
-	// Act
+	//act, assert
+	EXPECT_CALL(testableMailSender, sendMail(schedule))
+		.Times(1);
 	bookingScheduler.addSchedule(schedule);
-
-	// Assert
-	EXPECT_EQ(1, testableMailSender.getCountSendMailMethodIsCalled());
 }
 
 TEST_F(BookingFixture, 현재날짜가일요일인경우예약불가함예외처리발생) {
