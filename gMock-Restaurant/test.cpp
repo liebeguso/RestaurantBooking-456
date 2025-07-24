@@ -15,6 +15,11 @@ public:
 		mktime(&result);
 		return result;
 	}
+	tm plusHour(tm base, int hour) {
+		base.tm_hour += hour;
+		mktime(&base);
+		return base;
+	}
 
 	tm NOT_ON_THE_HOUR;
 	tm ON_THE_HOUR;
@@ -48,31 +53,54 @@ TEST_F(BookingFixture, 예약은정시에만가능하다정시인경우예약가능) {
 	EXPECT_EQ(true, bookingScheduler.hasSchedule(schedule));
 }
 
-TEST(BookingSchedulerTest, 시간대별인원제한이있다같은시간대에Capacity초과할경우예외발생) {
+TEST_F(BookingFixture, 시간대별인원제한이있다같은시간대에Capacity초과할경우예외발생) {
+	// Arrange
+	Schedule* schedule = new Schedule{ ON_THE_HOUR, CAPACITY_PER_HOUR, CUSTOMER };
+	bookingScheduler.addSchedule(schedule);
+
+	// act
+	try {
+		Schedule* newSchedule = new Schedule{ ON_THE_HOUR, UNDER_CAPACITY, CUSTOMER };
+		bookingScheduler.addSchedule(newSchedule);
+		FAIL(); // Exception 발생함으로 FAIL함수에 도달하지 않는다
+	}
+	catch (std::runtime_error& e) {
+		// assert
+		EXPECT_EQ(string{ e.what() }, string{ "Number of people is over restaurant capacity per hour" });
+	}
+}
+
+TEST_F(BookingFixture, 시간대별인원제한이있다시간대가다르면Capacity차있어도스케쥴추가성공) {
+	// Arrange
+	Schedule* schedule = new Schedule{ ON_THE_HOUR, CAPACITY_PER_HOUR, CUSTOMER };
+	bookingScheduler.addSchedule(schedule);
+
+	// Act
+	tm differentHour = plusHour(ON_THE_HOUR, 1);
+	Schedule* newSchedule = new Schedule{ differentHour, UNDER_CAPACITY, CUSTOMER };
+	bookingScheduler.addSchedule(newSchedule);
+
+	// Assert
+	EXPECT_EQ(true, bookingScheduler.hasSchedule(newSchedule));
+}
+
+TEST_F(BookingFixture, 예약완료시SMS는무조건발송) {
 
 }
 
-TEST(BookingSchedulerTest, 시간대별인원제한이있다시간대가다르면Capacity차있어도스케쥴추가성공) {
+TEST_F(BookingFixture, 이메일이없는경우에는이메일미발송) {
 
 }
 
-TEST(BookingSchedulerTest, 예약완료시SMS는무조건발송) {
+TEST_F(BookingFixture, 이메일이있는경우에는이메일발송) {
 
 }
 
-TEST(BookingSchedulerTest, 이메일이없는경우에는이메일미발송) {
+TEST_F(BookingFixture, 현재날짜가일요일인경우예약불가함예외처리발생) {
 
 }
 
-TEST(BookingSchedulerTest, 이메일이있는경우에는이메일발송) {
-
-}
-
-TEST(BookingSchedulerTest, 현재날짜가일요일인경우예약불가함예외처리발생) {
-
-}
-
-TEST(BookingSchedulerTest, 현재날짜가일요일이아닌경우예약가능) {
+TEST_F(BookingFixture, 현재날짜가일요일이아닌경우예약가능) {
 
 }
 
